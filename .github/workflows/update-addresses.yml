@@ -1,0 +1,121 @@
+# Check Japan Post's postal code data once a month. If it has changed, open a pull
+# request that updates the bundled address data and bumps the patch version.
+# To release it, merge the pull request and publish a GitHub release with the new tag
+# (publish.yml then uploads it to PyPI).
+#
+# Requires "Allow GitHub Actions to create and approve pull requests" to be enabled
+# in Settings > Actions > General > Workflow permissions.
+name: Update bundled address data
+
+on:
+  schedule:
+    # 00:17 UTC (09:17 JST) on the 3rd of every month.
+    # Japan Post updates the data around the end of each month.
+    - cron: "17 0 3 * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: update-addresses
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Update bundled address data
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      DATA_FILE: src/faker_ja_extended/data/addresses.json.gz
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.4.0
+        with:
+          enable-cache: false
+
+      - name: Rebuild bundled address data
+        run: uv run --locked python scripts/update_bundled_addresses.py
+
+      - name: Check for changes
+        id: check
+        run: |
+          if git diff --quiet -- "$DATA_FILE"; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "The bundled address data is up to date."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Collect details
+        id: details
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          read_meta() {
+            python3 -c 'import gzip, json, sys; m = json.load(gzip.open(sys.stdin.buffer))["meta"]; print(m["source_date"], m["count"])'
+          }
+          read -r old_date old_count < <(git show "HEAD:$DATA_FILE" | read_meta)
+          read -r new_date new_count < <(read_meta < "$DATA_FILE")
+          branch="update-addresses/${new_date}"
+          {
+            echo "old_date=${old_date}"
+            echo "old_count=${old_count}"
+            echo "new_date=${new_date}"
+            echo "new_count=${new_count}"
+            echo "branch=${branch}"
+          } >> "$GITHUB_OUTPUT"
+          # A pull request for the same source data may already be open from an earlier run.
+          if git ls-remote --exit-code --heads origin "$branch" > /dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Branch ${branch} already exists. Skipping."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump the patch version and run tests
+        id: version
+        if: steps.check.outputs.changed == 'true' && steps.details.outputs.exists == 'false'
+        run: |
+          echo "old=$(uv version --short)" >> "$GITHUB_OUTPUT"
+          uv version --bump patch
+          echo "new=$(uv version --short)" >> "$GITHUB_OUTPUT"
+          uv run --locked pytest
+
+      - name: Open a pull request
+        if: steps.check.outputs.changed == 'true' && steps.details.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.details.outputs.branch }}
+          OLD_DATE: ${{ steps.details.outputs.old_date }}
+          OLD_COUNT: ${{ steps.details.outputs.old_count }}
+          NEW_DATE: ${{ steps.details.outputs.new_date }}
+          NEW_COUNT: ${{ steps.details.outputs.new_count }}
+          OLD_VERSION: ${{ steps.version.outputs.old }}
+          NEW_VERSION: ${{ steps.version.outputs.new }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git add pyproject.toml uv.lock "$DATA_FILE"
+          git commit -m "Update bundled address data (${NEW_DATE})"
+          git push origin "$BRANCH"
+
+          cat > pr-body.md << EOF
+          Japan Post's postal code data has been updated.
+
+          | | Source data | Records |
+          |---|---|---|
+          | Before | ${OLD_DATE} | ${OLD_COUNT} |
+          | After | ${NEW_DATE} | ${NEW_COUNT} |
+
+          Version: ${OLD_VERSION} → ${NEW_VERSION}
+
+          Tests passed with the new data. To release it, merge this pull request and
+          publish a GitHub release with the tag \`v${NEW_VERSION}\`.
+          EOF
+
+          gh pr create --base main --head "$BRANCH" \
+            --title "Update bundled address data (${NEW_DATE})" \
+            --body-file pr-body.md
