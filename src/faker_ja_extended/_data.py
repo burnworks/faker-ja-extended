@@ -14,6 +14,9 @@ ENV_DATA_DIR = "FAKER_JA_EXTENDED_DATA_DIR"
 ADDRESSES_FILE = "addresses.json.gz"
 SURNAMES_FILE = "surnames.json.gz"
 
+# パッケージに同梱しているデータの場所（住所データのみ同梱）
+BUNDLED_DATA_DIR = Path(__file__).parent / "data"
+
 FORMAT_VERSION = 1
 
 
@@ -34,6 +37,22 @@ def default_data_dir() -> Path:
     else:
         base = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share")
     return base / "faker-ja-extended"
+
+
+def resolve_dataset_path(filename: str, explicit_dir: Path | None, *, bundled: bool) -> Path:
+    """Provider が読むデータファイルの場所を決める。
+
+    1. Provider に data_dir が明示されていれば、その場所だけを見る（なければエラー）
+    2. 既定の保存先（環境変数 FAKER_JA_EXTENDED_DATA_DIR など）にビルド済みのデータがあれば、
+       それを使う
+    3. 同梱データがあるもの（住所）は、同梱データを使う
+    """
+    if explicit_dir is not None:
+        return explicit_dir / filename
+    local = default_data_dir() / filename
+    if local.exists() or not bundled:
+        return local
+    return BUNDLED_DATA_DIR / filename
 
 
 def write_dataset(path: Path, meta: dict[str, Any], records: list[list[str]]) -> None:

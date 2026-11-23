@@ -17,6 +17,7 @@ from pathlib import Path
 
 from faker_ja_extended._data import (
     ADDRESSES_FILE,
+    BUNDLED_DATA_DIR,
     SURNAMES_FILE,
     DataNotBuiltError,
     default_data_dir,
@@ -37,7 +38,7 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def _download(url: str, dest: Path) -> Path:
+def download(url: str, dest: Path) -> Path:
     dest.parent.mkdir(parents=True, exist_ok=True)
     print(f"取得中: {url}", file=sys.stderr)
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
@@ -54,26 +55,36 @@ def _source(local: Path | None, url: str, sources_dir: Path, filename: str) -> t
         if not local.exists():
             raise SystemExit(f"ファイルが見つかりません: {local}")
         return local, str(local.resolve())
-    return _download(url, sources_dir / filename), url
+    return download(url, sources_dir / filename), url
 
 
 def _now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
-def build_addresses(data_dir: Path, local: Path | None) -> None:
-    path, origin = _source(local, ken_all.SOURCE_URL, data_dir / "sources", "utf_ken_all.zip")
-    records = ken_all.build_records(ken_all.iter_rows(path))
+def address_dataset(
+    zip_path: Path, origin: str, *, built_at: str | None
+) -> tuple[dict, list[list[str]]]:
+    """郵便番号データの zip から、住所データセットのメタデータとレコードを作る。"""
+    records = ken_all.build_records(ken_all.iter_rows(zip_path))
     meta = {
         "dataset": "addresses",
         "fields": list(ken_all.FIELDS),
         "source": origin,
         "source_page": ken_all.SOURCE_PAGE,
-        "source_sha256": _sha256(path),
-        "built_at": _now(),
+        "source_date": ken_all.source_date(zip_path),
+        "source_sha256": _sha256(zip_path),
         "count": len(records),
         "notice": "郵便番号データについて、日本郵便株式会社は著作権を主張していません。",
     }
+    if built_at is not None:
+        meta["built_at"] = built_at
+    return meta, records
+
+
+def build_addresses(data_dir: Path, local: Path | None) -> None:
+    path, origin = _source(local, ken_all.SOURCE_URL, data_dir / "sources", "utf_ken_all.zip")
+    meta, records = address_dataset(path, origin, built_at=_now())
     write_dataset(data_dir / ADDRESSES_FILE, meta, records)
     print(f"住所: {len(records):,} 件 → {data_dir / ADDRESSES_FILE}", file=sys.stderr)
 
@@ -110,17 +121,36 @@ def cmd_build(args: argparse.Namespace) -> None:
         build_surnames(data_dir, args.jmnedict)
 
 
+def _describe(meta: dict) -> str:
+    parts = [f"{meta['count']:,} 件"]
+    if "source_date" in meta:
+        parts.append(f"元データ {meta['source_date']} 版")
+    if "built_at" in meta:
+        parts.append(f"ビルド {meta['built_at']}")
+    return "、".join(parts)
+
+
 def cmd_info(args: argparse.Namespace) -> None:
-    for name in (ADDRESSES_FILE, SURNAMES_FILE):
-        path = args.data_dir / name
+    print(f"保存先: {args.data_dir}")
+    for name, label in ((ADDRESSES_FILE, "住所"), (SURNAMES_FILE, "姓")):
         try:
-            meta, _ = read_dataset(path)
+            meta, _ = read_dataset(args.data_dir / name)
+            local = _describe(meta)
         except DataNotBuiltError:
-            print(f"{name}: 未ビルド")
-            continue
-        print(
-            f"{name}: {meta['count']:,} 件（ビルド {meta['built_at']}、元データ {meta['source']}）"
-        )
+            local = None
+        bundled_path = BUNDLED_DATA_DIR / name
+        bundled = _describe(read_dataset(bundled_path)[0]) if bundled_path.exists() else None
+
+        print(f"{label}（{name}）")
+        print(f"  ビルド済み: {local or '未ビルド'}")
+        if bundled is not None:
+            print(f"  同梱データ: {bundled}")
+        if local:
+            print("  → ビルド済みのデータを使います")
+        elif bundled:
+            print("  → 同梱データを使います")
+        else:
+            print("  → 使用できません（faker-ja-extended build を実行してください）")
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -143,7 +173,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     build.set_defaults(func=cmd_build)
 
-    info = sub.add_parser("info", help="ビルド済みデータの情報を表示する")
+    info = sub.add_parser("info", help="ビルド済みデータと同梱データの情報を表示する")
     info.set_defaults(func=cmd_info)
 
     args = parser.parse_args(argv)

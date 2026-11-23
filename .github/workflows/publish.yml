@@ -1,0 +1,68 @@
+# Publish to PyPI via Trusted Publishing when a GitHub release is published.
+# This repository, this workflow (publish.yml) and the environment "pypi"
+# must be registered as a Trusted Publisher on PyPI.
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+
+permissions: {}
+
+jobs:
+  build:
+    name: Build distributions
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@v10.4.0
+        with:
+          enable-cache: false
+
+      - name: Check that the tag matches the package version
+        run: |
+          version="$(uv version --short)"
+          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "::error::Release tag ${GITHUB_REF_NAME} does not match package version v${version}"
+            exit 1
+          fi
+
+      - name: Run tests
+        run: uv run --locked pytest
+
+      - name: Build
+        run: uv build
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/faker-ja-extended
+    # Only this job, which does not run the build, gets the permission
+    # required for Trusted Publishing.
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Skip versions that were already uploaded manually (e.g. the initial 0.2.0).
+          # The build job checks that the tag matches the package version,
+          # so every new tag always corresponds to a new version.
+          skip-existing: true

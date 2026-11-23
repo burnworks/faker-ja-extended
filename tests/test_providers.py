@@ -9,7 +9,14 @@ from faker import Faker
 from faker.providers.person.ja_JP import Provider as JaPersonProvider
 
 from faker_ja_extended import AddressProvider, AddressRecord, PersonProvider
-from faker_ja_extended._data import SURNAMES_FILE, DataNotBuiltError, read_dataset
+from faker_ja_extended._data import (
+    ADDRESSES_FILE,
+    BUNDLED_DATA_DIR,
+    ENV_DATA_DIR,
+    SURNAMES_FILE,
+    DataNotBuiltError,
+    read_dataset,
+)
 from faker_ja_extended.build.cli import main as cli_main
 
 
@@ -90,5 +97,48 @@ def test_missing_data_raises_helpful_error(tmp_path: Path) -> None:
 def test_info_command(data_dir: Path, capsys: pytest.CaptureFixture[str]) -> None:
     cli_main(["--data-dir", str(data_dir), "info"])
     out = capsys.readouterr().out
-    assert "addresses.json.gz: 11 件" in out
-    assert "surnames.json.gz:" in out
+    assert "ビルド済み: 11 件" in out
+    assert "同梱データ:" in out
+    assert "→ ビルド済みのデータを使います" in out
+
+
+# --- データの読み込み先の優先順位 ---
+
+
+def test_address_falls_back_to_bundled_data(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv(ENV_DATA_DIR, str(tmp_path))  # ビルド済みのデータがない状態
+    provider = AddressProvider(Faker("ja_JP"))
+    assert provider.dataset_path == BUNDLED_DATA_DIR / ADDRESSES_FILE
+    assert provider.dataset_meta["count"] > 100_000
+
+
+def test_local_build_is_preferred_over_bundled(monkeypatch, data_dir: Path) -> None:
+    monkeypatch.setenv(ENV_DATA_DIR, str(data_dir))
+    provider = AddressProvider(Faker("ja_JP"))
+    assert provider.dataset_path == data_dir / ADDRESSES_FILE
+    assert provider.dataset_meta["count"] == 11
+
+
+def test_explicit_data_dir_does_not_fall_back(tmp_path: Path) -> None:
+    provider = type("A", (AddressProvider,), {"data_dir": tmp_path})
+    with pytest.raises(DataNotBuiltError):
+        provider(Faker("ja_JP"))
+
+
+def test_surnames_are_not_bundled(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv(ENV_DATA_DIR, str(tmp_path))
+    assert not (BUNDLED_DATA_DIR / SURNAMES_FILE).exists()
+    with pytest.raises(DataNotBuiltError):
+        PersonProvider(Faker("ja_JP"))
+
+
+def test_bundled_address_data_is_clean() -> None:
+    meta, records = read_dataset(BUNDLED_DATA_DIR / ADDRESSES_FILE)
+    assert meta["count"] == len(records) > 100_000
+    assert "built_at" not in meta  # 同じ元データから同じファイルができるよう、日時を含めない
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", meta["source_date"])
+    for postcode, lg_code, _, _, _, _, town, town_kana, _ in records:
+        assert re.fullmatch(r"\d{7}", postcode)
+        assert re.fullmatch(r"\d{5}", lg_code)
+        assert not re.search(r"[（）()、]|以下に掲載がない場合|がくる場合", town), town
+        assert not re.search(r"[（）()、]", town_kana), town_kana

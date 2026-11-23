@@ -2,7 +2,7 @@
 
 [Faker](https://github.com/joke2k/faker) の日本語ロケール（`ja_JP`）を拡張し、テストデータをより実際に近いものにする Provider 集です。
 
-- **実在する住所と郵便番号**：日本郵便の郵便番号データをもとに、都道府県 / 市区町村 / 町域 / 郵便番号の対応が取れた住所を生成します
+- **実在する住所と郵便番号**：日本郵便の郵便番号データをもとに、都道府県 / 市区町村 / 町域 / 郵便番号の対応が取れた住所を生成します。住所データはパッケージに同梱しているので、インストールしてすぐに使えます
 - **約 14 万件の姓**：JMnedict（日本語固有名詞辞書）の姓を追加し、漢字 / カタカナ / ローマ字が対応した氏名を生成します
 
 ```python
@@ -28,22 +28,24 @@ faker-ja-extended は、Faker の使い方はそのままに、これらを公�
 
 ```sh
 # uv
-uv add git+https://github.com/burnworks/faker-ja-extended
+uv add faker-ja-extended
 
 # pip（仮想環境を有効にした状態で）
-pip install git+https://github.com/burnworks/faker-ja-extended
+pip install faker-ja-extended
 ```
 
-### 2. データをビルドする（最初に一度だけ）
+### 2. 姓のデータをビルドする（姓を使う場合、最初に一度だけ）
 
-元データはパッケージに含まれていません。日本郵便と EDRDG から元データを取得し、Provider が使う形式に変換します。インターネット接続が必要です。
+住所データはパッケージに同梱しているので、住所だけを使う場合はこの手順は不要です。
+
+姓のデータはライセンスの都合で同梱していないため、EDRDG から元データを取得してビルドします。インターネット接続が必要です。
 
 ```sh
 # uv
-uv run faker-ja-extended build
+uv run faker-ja-extended build --only surnames
 
 # pip
-faker-ja-extended build
+faker-ja-extended build --only surnames
 ```
 
 ### 3. Provider を追加する
@@ -60,7 +62,7 @@ fake.address_with_postcode()  # '〒150-0022 東京都渋谷区恵比寿南'
 fake.name_pair()              # ('幸脇 英樹', 'サイノワキ ヒデキ', 'Hideki Sainowaki')
 ```
 
-データをビルドする前に Provider を追加すると、`DataNotBuiltError` が発生します。
+姓のデータをビルドする前に `PersonProvider` を追加すると、`DataNotBuiltError` が発生します。
 
 ## Provider を追加すると何が変わるか
 
@@ -115,12 +117,7 @@ fake.name_pair()       # ('幸脇 英樹', 'サイノワキ ヒデキ', 'Hideki 
 
 ### 住所だけ、または姓だけ使う
 
-2 つの Provider は独立しているので、片方だけ追加できます。その場合、データも片方だけビルドすれば問題ありません。
-
-```sh
-faker-ja-extended build --only addresses   # 住所だけ
-faker-ja-extended build --only surnames    # 姓だけ
-```
+2 つの Provider は独立しているので、片方だけ追加できます。住所だけを使う場合は、データのビルドは不要です。
 
 ```python
 fake = Faker("ja_JP")
@@ -179,7 +176,9 @@ class CustomerFactory(factory.Factory):
 
 ### 同じデータを再現する
 
-Faker 標準と同じく、シードを固定すると毎回同じデータが生成されます。ただし、データをビルドし直して元データが更新されていた場合は、同じシードでも結果が変わります。
+Faker 標準と同じく、シードを固定すると毎回同じデータが生成されます。同梱の住所データはパッケージのバージョンごとに固定されているので、同じバージョンと同じシードなら、どの環境でも同じ住所が生成されます。
+
+ただし、`faker-ja-extended build` でデータをビルドし直した場合は、元データの更新によって、同じシードでも結果が変わることがあります。
 
 ```python
 fake.seed_instance(42)
@@ -211,6 +210,16 @@ fake.add_provider(MyAddressProvider)
 
 ## データの管理
 
+### 使われるデータ
+
+Provider は、次の順でデータを探して使います。
+
+1. Provider の `data_dir` が設定されていれば、その場所のデータ（見つからなければエラー）
+2. 保存先（下記）に `faker-ja-extended build` でビルドしたデータがあれば、そのデータ
+3. 住所は、パッケージに同梱しているデータ
+
+同梱の住所データは、リリースした時点の郵便番号データから作っています。より新しい郵便番号データを使いたい場合は、`faker-ja-extended build --only addresses` でビルドすると、そちらが優先されます。どちらが使われるかは `faker-ja-extended info` で確認できます。
+
 ### 保存先
 
 ビルドしたデータと取得した元データは、次の場所に保存されます。
@@ -228,17 +237,20 @@ FAKER_JA_EXTENDED_DATA_DIR=./data faker-ja-extended build
 
 | コマンド | 内容 |
 |---|---|
-| `faker-ja-extended build` | 元データを取得して、すべてのデータをビルドする |
-| `faker-ja-extended build --only addresses` | 住所だけビルドする（`surnames` で姓だけ） |
+| `faker-ja-extended build` | 元データを取得して、住所と姓の両方のデータをビルドする |
+| `faker-ja-extended build --only surnames` | 姓だけビルドする（`addresses` で住所だけ） |
 | `faker-ja-extended build --ken-all ./utf_ken_all.zip` | 取得済みの郵便番号データを使う |
 | `faker-ja-extended build --jmnedict ./JMnedict.xml.gz` | 取得済みの JMnedict を使う |
-| `faker-ja-extended info` | ビルド済みデータの件数と元データを表示する |
+| `faker-ja-extended info` | ビルド済みデータと同梱データの件数・元データの日付と、どちらが使われるかを表示する |
 
 `faker-ja-extended` の代わりに `python -m faker_ja_extended` でも実行できます。
 
 ### 更新
 
-元データはどちらも定期的に更新されます（郵便番号データは毎月）。最新の状態を保つため、定期的に `faker-ja-extended build` を実行し直してください。
+元データはどちらも定期的に更新されます（郵便番号データは毎月）。
+
+- 住所：同梱データは、パッケージの新しいバージョンで更新します。最新の郵便番号データが必要な場合は、`faker-ja-extended build --only addresses` を実行してください
+- 姓：最新の状態を保つため、定期的に `faker-ja-extended build --only surnames` を実行し直してください
 
 ## データの加工内容
 
@@ -283,7 +295,7 @@ JMnedict のうち、種別が「姓」のエントリから、漢字表記と�
 
 - Python 3.11 以上
 - Faker 40 以上
-- Linux / macOS / Windows（Windows の注意点は[付録](#付録windows-環境をご利用の場合)を参照）
+- Linux / macOS / Windows（Windows の注意点は[付録](https://github.com/burnworks/faker-ja-extended#付録windows-環境をご利用の場合)を参照）
 
 ## 開発
 
@@ -295,17 +307,23 @@ uv run pytest
 uv run ruff check . && uv run ruff format --check .
 ```
 
-テストは小さなフィクスチャデータで行い、ネットワークには接続しません。
+テストは小さなフィクスチャデータで行い、ネットワークには接続しません（同梱の住所データの検証を除く）。
+
+同梱の住所データを更新するには、次のスクリプトを実行します。同じ元データからは常に同じファイルができるので、差分がなければ更新は不要です。
+
+```sh
+uv run python scripts/update_bundled_addresses.py
+```
 
 ## ライセンス
 
-このリポジトリのコードは [MIT License](LICENSE) で公開しています。
+このリポジトリのコードは [MIT License](https://github.com/burnworks/faker-ja-extended/blob/main/LICENSE) で公開しています。
 
-元データとビルドしたデータには、それぞれ次の出典とライセンスが適用されます。
+同梱データ、元データ、ビルドしたデータには、それぞれ次の出典とライセンスが適用されます。
 
 ### データの出典
 
-- **郵便番号データ**：[日本郵便株式会社](https://www.post.japanpost.jp/service/search/zipcode/download/utf-zip.html)。郵便番号データについて、日本郵便株式会社は著作権を主張していません
+- **郵便番号データ**：[日本郵便株式会社](https://www.post.japanpost.jp/service/search/zipcode/download/utf-zip.html)。郵便番号データについて、日本郵便株式会社は著作権を主張していません。パッケージに同梱している住所データ（`src/faker_ja_extended/data/addresses.json.gz`）は、このデータを加工したものです
 - **JMnedict**：This package uses the [JMnedict](https://www.edrdg.org/enamdict/enamdict_doc.html) dictionary file. This file is the property of the [Electronic Dictionary Research and Development Group](https://www.edrdg.org/), and is used in conformance with the Group's [licence](https://www.edrdg.org/edrdg/license.html) (CC BY-SA 4.0).
 
 ビルドした姓データ（`surnames.json.gz`）は JMnedict の派生物なので、CC BY-SA 4.0 に従います。ビルドしたデータを配布する場合は、ビルド時にデータの保存先に出力される `SURNAMES_ATTRIBUTION.txt` を添えてください。

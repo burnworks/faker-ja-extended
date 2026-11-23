@@ -2,6 +2,9 @@
 
 都道府県・市区町村・町域・郵便番号は、すべて同じ 1 件のレコードから取るので整合が取れている。
 丁目以降（番地・号・建物名）は付けない。
+
+住所データはパッケージに同梱している。``faker-ja-extended build`` でビルドしたデータが
+既定の保存先にあれば、そちらを優先して使う。
 """
 
 from __future__ import annotations
@@ -12,7 +15,7 @@ from typing import ClassVar
 
 from faker.providers.address.ja_JP import Provider as JaAddressProvider
 
-from faker_ja_extended._data import ADDRESSES_FILE, default_data_dir, read_dataset
+from faker_ja_extended._data import ADDRESSES_FILE, read_dataset, resolve_dataset_path
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,12 +51,16 @@ class Provider(JaAddressProvider):
     """ja_JP の住所 Provider を、実在の郵便番号・住所で置き換える。"""
 
     data_dir: ClassVar[Path | None] = None
-    """データの場所。None なら既定の場所（環境変数 FAKER_JA_EXTENDED_DATA_DIR など）を使う"""
+    """データの場所。
+
+    None なら、既定の保存先（環境変数 FAKER_JA_EXTENDED_DATA_DIR など）にビルド済みのデータがあれば
+    それを、なければ同梱データを使う。指定した場合は、その場所のデータだけを使う。
+    """
 
     def __init__(self, generator) -> None:
         super().__init__(generator)
-        path = (self.data_dir or default_data_dir()) / ADDRESSES_FILE
-        _, self._records = read_dataset(path)
+        self.dataset_path = resolve_dataset_path(ADDRESSES_FILE, self.data_dir, bundled=True)
+        self.dataset_meta, self._records = read_dataset(self.dataset_path)
 
     def address_record(self) -> AddressRecord:
         """実在する郵便番号と住所の組を 1 件返す。

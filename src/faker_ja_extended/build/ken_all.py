@@ -71,6 +71,14 @@ FIELDS = (
 )
 
 
+def source_date(zip_path: Path) -> str:
+    """zip に含まれる CSV の日付（データの作成日）を YYYY-MM-DD で返す。"""
+    with zipfile.ZipFile(zip_path) as zf:
+        info = next(i for i in zf.infolist() if i.filename.lower().endswith(".csv"))
+    year, month, day = info.date_time[:3]
+    return f"{year:04d}-{month:02d}-{day:02d}"
+
+
 def iter_rows(zip_path: Path) -> Iterator[list[str]]:
     """zip に含まれる CSV の行を順に返す。"""
     with zipfile.ZipFile(zip_path) as zf:

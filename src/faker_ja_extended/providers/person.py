@@ -14,7 +14,7 @@ from typing import ClassVar
 
 from faker.providers.person.ja_JP import Provider as JaPersonProvider
 
-from faker_ja_extended._data import SURNAMES_FILE, default_data_dir, read_dataset
+from faker_ja_extended._data import SURNAMES_FILE, read_dataset, resolve_dataset_path
 
 NamePair = tuple[str, str, str]
 
@@ -36,8 +36,9 @@ class Provider(JaPersonProvider):
         super().__init__(generator)
         if not 0 <= self.extended_share < 1:
             raise ValueError("extended_share は 0 以上 1 未満にしてください")
-        path = (self.data_dir or default_data_dir()) / SURNAMES_FILE
-        _, records = read_dataset(path)
+        # 姓データ（JMnedict 由来、CC BY-SA 4.0）は同梱せず、利用者の環境でビルドする
+        self.dataset_path = resolve_dataset_path(SURNAMES_FILE, self.data_dir, bundled=False)
+        self.dataset_meta, records = read_dataset(self.dataset_path)
         self._surnames, self._cum_weights = _build_population(records, self.extended_share)
 
     def last_name_pair(self) -> NamePair:
