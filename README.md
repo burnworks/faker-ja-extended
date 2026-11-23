@@ -227,10 +227,10 @@ Provider は、次の順でデータを探して使います。
 - Linux / macOS：`~/.local/share/faker-ja-extended`（環境変数 `XDG_DATA_HOME` が設定されていればその下）
 - Windows：`%LOCALAPPDATA%\faker-ja-extended`
 
-保存先は、環境変数 `FAKER_JA_EXTENDED_DATA_DIR` か、`--data-dir` オプションで変更できます。CI などでプロジェクト内に置きたい場合に使ってください。
+保存先は、環境変数 `FAKER_JA_EXTENDED_DATA_DIR` か、`--data-dir` オプションで変更できます。CI などで姓のデータをプロジェクト内に置きたい場合に使ってください。
 
 ```sh
-FAKER_JA_EXTENDED_DATA_DIR=./data faker-ja-extended build
+FAKER_JA_EXTENDED_DATA_DIR=./data faker-ja-extended build --only surnames
 ```
 
 ### コマンド
@@ -307,9 +307,9 @@ uv run pytest
 uv run ruff check . && uv run ruff format --check .
 ```
 
-テストは小さなフィクスチャデータで行い、ネットワークには接続しません（同梱の住所データの検証を除く）。
+テストは小さなフィクスチャデータと同梱の住所データで行い、ネットワークには接続しません。
 
-同梱の住所データを更新するには、次のスクリプトを実行します。同じ元データからは常に同じファイルができるので、差分がなければ更新は不要です。
+同梱の住所データを更新するには（メンテナー向け）、次のスクリプトを実行します。日本郵便から最新の郵便番号データを取得してビルドします。同じ元データからは常に同じファイルができるので、差分がなければ更新は不要です。
 
 ```sh
 uv run python scripts/update_bundled_addresses.py
@@ -357,7 +357,7 @@ winget install --id Python.Python.3.13 -e
 uv sync --python-preference only-system
 
 # コマンドは python -m の形式で実行する
-uv run python -m faker_ja_extended build
+uv run python -m faker_ja_extended build --only surnames
 uv run python -m faker_ja_extended info
 uv run python -m pytest
 ```
