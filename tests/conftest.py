@@ -60,6 +60,8 @@ JMNEDICT_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <!ENTITY surname "family or surname">
 <!ENTITY given "given name or forename, gender not specified">
 <!ENTITY place "place name">
+<!ENTITY fem "female given name or forename">
+<!ENTITY masc "male given name or forename">
 ]>
 <JMnedict>
 <entry><ent_seq>1</ent_seq>
@@ -99,6 +101,30 @@ JMNEDICT_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <k_ele><keb>翼</keb></k_ele>
 <r_ele><reb>つばさ</reb></r_ele>
 <trans><name_type>&given;</name_type></trans></entry>
+<entry><ent_seq>10</ent_seq>
+<k_ele><keb>美咲</keb></k_ele>
+<r_ele><reb>みさき</reb></r_ele>
+<trans><name_type>&fem;</name_type></trans></entry>
+<entry><ent_seq>11</ent_seq>
+<k_ele><keb>大輔</keb></k_ele>
+<r_ele><reb>だいすけ</reb></r_ele>
+<trans><name_type>&fem;</name_type></trans></entry>
+<entry><ent_seq>12</ent_seq>
+<k_ele><keb>愛</keb></k_ele>
+<r_ele><reb>あい</reb></r_ele><r_ele><reb>まな</reb></r_ele><r_ele><reb>めぐみ</reb></r_ele>
+<trans><name_type>&fem;</name_type></trans></entry>
+<entry><ent_seq>13</ent_seq>
+<k_ele><keb>盛貞</keb></k_ele>
+<r_ele><reb>もりさだ</reb></r_ele>
+<trans><name_type>&given;</name_type></trans></entry>
+<entry><ent_seq>14</ent_seq>
+<k_ele><keb>薫</keb></k_ele>
+<r_ele><reb>かおる</reb></r_ele>
+<trans><name_type>&fem;</name_type><name_type>&masc;</name_type></trans></entry>
+<entry><ent_seq>15</ent_seq>
+<k_ele><keb>Ｍａｒｙ</keb></k_ele>
+<r_ele><reb>めあり</reb></r_ele>
+<trans><name_type>&fem;</name_type></trans></entry>
 </JMnedict>
 """
 

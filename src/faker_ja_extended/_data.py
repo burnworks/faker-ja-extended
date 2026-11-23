@@ -13,6 +13,7 @@ ENV_DATA_DIR = "FAKER_JA_EXTENDED_DATA_DIR"
 
 ADDRESSES_FILE = "addresses.json.gz"
 SURNAMES_FILE = "surnames.json.gz"
+GIVEN_NAMES_FILE = "given_names.json.gz"
 
 # パッケージに同梱しているデータの場所（住所データのみ同梱）
 BUNDLED_DATA_DIR = Path(__file__).parent / "data"

@@ -4,6 +4,7 @@
 
 - **実在する住所と郵便番号**：日本郵便の郵便番号データをもとに、都道府県 / 市区町村 / 町域 / 郵便番号の対応が取れた住所を生成します。住所データはパッケージに同梱しているので、インストールしてすぐに使えます
 - **約 14 万件の姓**：JMnedict（日本語固有名詞辞書）の姓を追加し、漢字 / カタカナ / ローマ字が対応した氏名を生成します
+- **約 18 万件の名（任意）**：設定を変えると、名も JMnedict の名で拡張できます
 
 ```python
 >>> fake.address_with_postcode()
@@ -16,7 +17,7 @@
 
 Faker の `ja_JP` ロケールは手軽に使えますが、大量のテストデータを作ると次のような問題が出ます。
 
-- 姓は 50 種類、名は 51 種類しかないため、100 万件生成すると同じ氏名が平均 400 回ほど重複します
+- 姓は 50 種類、名は 51 種類しかないため、例えば 100 万件のテストデータを生成すると同じ氏名が平均 400 回ほど重複します
 - 住所は都道府県 / 市区町村 / 町名を別々に選ぶため、「京都府練馬区」のような実在しない組み合わせや、「39丁目」のようなありえない値が出ます
 - 郵便番号も住所とは無関係に生成されます
 
@@ -47,6 +48,8 @@ uv run faker-ja-extended build --only surnames
 # pip
 faker-ja-extended build --only surnames
 ```
+
+このコマンドでビルドされるのは姓のデータだけです。名も拡張する場合は、`--only surnames given_names` のように名のデータ（`given_names`）も指定してビルドしてください（[名を拡張する](#名を拡張する)を参照）。
 
 ### 3. Provider を追加する
 
@@ -102,9 +105,8 @@ Faker 標準の `ja_JP` の氏名 Provider を継承しています。
 |---|---|---|
 | 候補が増える | `last_name()`、`last_kana_name()`、`last_romanized_name()`、`last_name_pair()` | 姓の候補が、Faker 標準の 50 件から約 14 万件に増えます |
 | 候補が増える | `name()`、`kana_name()`、`romanized_name()` など姓を含むもの | 同上 |
+| 設定で候補が増える | `first_name()`、`first_name_female()`、`first_name_male()` など名を含むもの | 既定では Faker 標準のまま。設定すると約 18 万件に増えます（[名を拡張する](#名を拡張する)） |
 | 追加 | `name_pair()` | 氏名の (漢字, カタカナ, ローマ字)。読みとローマ字が漢字と対応しています |
-
-名（ファーストネーム）は Faker 標準のままです。
 
 Faker 標準の `name()` と `kana_name()` は、それぞれ別の氏名から生成されます。漢字と読みを対応させたい場合は、`name_pair()` を使ってください。
 
@@ -184,6 +186,32 @@ Faker 標準と同じく、シードを固定すると毎回同じデータが�
 fake.seed_instance(42)
 ```
 
+### 名を拡張する
+
+名（ファーストネーム）は、既定では Faker 標準（女性 21 件、男性 30 件）のままです。`extended_first_name_share` を設定すると、JMnedict の名（約 18 万件）を追加できます。
+
+```sh
+faker-ja-extended build --only given_names
+```
+
+```python
+class MyPersonProvider(PersonProvider):
+    extended_first_name_share = 0.5  # 追加した名が選ばれる割合
+
+fake.add_provider(MyPersonProvider)
+fake.first_name_female()  # '安莉砂'
+fake.name_pair()          # ('城台 真綾', 'ジョウダイ マアヤ', 'Maaya Jodai')
+```
+
+姓と名の両方を拡張すると、100 万件生成したときの氏名の種類は約 74 万種類になります（拡張しない場合は 2,550 種類）。
+
+既定で無効にしているのは、次の注意点があるためです。
+
+- **性別は目安です**：JMnedict の性別の分類は不完全なため、分類と語尾（～郎 / ～彦なら男性、～子 / ～美なら女性など）から振り分けています。Faker 標準の名で確かめると、女性名は 18 件すべて、男性名は 30 件中 24 件が正しく振り分けられ、6 件（晃、淳、翼、学、裕樹、零）は女性名に振り分けられました。`first_name_male()` で女性名が、`first_name_female()` で男性名が出ることがあります
+- **頻度の情報がありません**：珍しい名や当て字の読みが、実際の分布より多く出ます。1 つの漢字表記に読みが多いもの（「愛」は数十通り）が偏らないよう、漢字表記ごとに同じくらいの確率になるよう調整しています
+
+入力欄や検索のテストで、名の文字や読みのバリエーションを増やしたい場合に向いています。性別ごとの集計など、性別の正確さが必要なテストには向きません。
+
 ### 設定を変える
 
 サブクラスを作って設定を変更します。
@@ -195,6 +223,7 @@ from faker_ja_extended import AddressProvider, PersonProvider
 
 class MyPersonProvider(PersonProvider):
     extended_share = 0.3       # 追加した姓が選ばれる割合（既定 0.5）
+    extended_first_name_share = 0.5  # 追加した名が選ばれる割合（既定 0 = 無効）
     data_dir = Path("./data")  # データの保存先
 
 
@@ -237,8 +266,8 @@ FAKER_JA_EXTENDED_DATA_DIR=./data faker-ja-extended build --only surnames
 
 | コマンド | 内容 |
 |---|---|
-| `faker-ja-extended build` | 元データを取得して、住所と姓の両方のデータをビルドする |
-| `faker-ja-extended build --only surnames` | 姓だけビルドする（`addresses` で住所だけ） |
+| `faker-ja-extended build` | 元データを取得して、住所・姓・名のデータをビルドする |
+| `faker-ja-extended build --only surnames` | 姓だけビルドする（`addresses` で住所、`given_names` で名。`--only surnames given_names` のように複数指定も可） |
 | `faker-ja-extended build --ken-all ./utf_ken_all.zip` | 取得済みの郵便番号データを使う |
 | `faker-ja-extended build --jmnedict ./JMnedict.xml.gz` | 取得済みの JMnedict を使う |
 | `faker-ja-extended info` | ビルド済みデータと同梱データの件数・元データの日付と、どちらが使われるかを表示する |
@@ -250,7 +279,7 @@ FAKER_JA_EXTENDED_DATA_DIR=./data faker-ja-extended build --only surnames
 元データはどちらも定期的に更新されます（郵便番号データは毎月）。
 
 - 住所：同梱データは、郵便番号データの更新を毎月確認し、変更があればパッチバージョン（例：0.2.0 → 0.2.1）として公開します。それより新しいデータが必要な場合は、`faker-ja-extended build --only addresses` を実行してください
-- 姓：最新の状態を保つため、定期的に `faker-ja-extended build --only surnames` を実行し直してください
+- 姓・名：最新の状態を保つため、定期的に `faker-ja-extended build --only surnames given_names`（名を使わない場合は `surnames` だけ）を実行し直してください
 
 ## データの加工内容
 
@@ -274,9 +303,9 @@ FAKER_JA_EXTENDED_DATA_DIR=./data faker-ja-extended build --only surnames
 
 加工前の町域名は `AddressRecord.town_raw` で取得できます。表記の揺れや注記を含むデータとして、住所の入力欄や正規化処理のテストに使えます。
 
-### 姓とローマ字
+### 姓・名とローマ字
 
-JMnedict のうち、種別が「姓」のエントリから、漢字表記と読みの組を取り出しています。1 つの漢字に複数の読みがある姓（「新谷」の「あらたに」「しんたに」「にいや」など）は、それぞれ別の姓として扱います。
+JMnedict のうち、種別が「姓」「名」のエントリから、漢字表記と読みの組を取り出しています。1 つの漢字に複数の読みがある姓（「新谷」の「あらたに」「しんたに」「にいや」など）は、それぞれ別の姓として扱います。
 
 ローマ字は、読みからヘボン式（パスポート式）で生成しています。
 
@@ -287,7 +316,8 @@ JMnedict のうち、種別が「姓」のエントリから、漢字表記と�
 ## 制限事項
 
 - 住所は町域までです。丁目以降（番地 / 号 / 建物名）は生成しません
-- JMnedict には姓の頻度の情報がないため、追加した姓はすべて同じ確率で選ばれます。珍しい姓が実際の分布より多く出る点に注意してください
+- JMnedict には姓・名の頻度の情報がないため、追加した姓はすべて同じ確率で選ばれます。珍しい姓や名が実際の分布より多く出る点に注意してください
+- 名を拡張した場合、性別は目安です（[名を拡張する](#名を拡張する)を参照）
 - ローマ字の長音の判定は、読みだけから行う近似です。語の切れ目によっては、パスポートの表記と一致しない場合があります（「うえ」の「う」は縮めない例外を設けています。例：いのうえ → Inoue）
 - 住所は実在する地域、氏名は実在する姓と名の組み合わせです。実在の個人を表すものではありませんが、生成したデータを宛先にして郵便物を送るなどの使い方はしないでください
 
@@ -341,7 +371,7 @@ uv run python scripts/update_bundled_addresses.py
 - **郵便番号データ**：[日本郵便株式会社](https://www.post.japanpost.jp/service/search/zipcode/download/utf-zip.html)。郵便番号データについて、日本郵便株式会社は著作権を主張していません。パッケージに同梱している住所データ（`src/faker_ja_extended/data/addresses.json.gz`）は、このデータを加工したものです
 - **JMnedict**：This package uses the [JMnedict](https://www.edrdg.org/enamdict/enamdict_doc.html) dictionary file. This file is the property of the [Electronic Dictionary Research and Development Group](https://www.edrdg.org/), and is used in conformance with the Group's [licence](https://www.edrdg.org/edrdg/license.html) (CC BY-SA 4.0).
 
-ビルドした姓データ（`surnames.json.gz`）は JMnedict の派生物なので、CC BY-SA 4.0 に従います。ビルドしたデータを配布する場合は、ビルド時にデータの保存先に出力される `SURNAMES_ATTRIBUTION.txt` を添えてください。
+ビルドした姓・名のデータ（`surnames.json.gz`、`given_names.json.gz`）は JMnedict の派生物なので、CC BY-SA 4.0 に従います。ビルドしたデータを配布する場合は、ビルド時にデータの保存先に出力される `JMNEDICT_ATTRIBUTION.txt` を添えてください。
 
 ## 付録：Windows 環境をご利用の場合
 

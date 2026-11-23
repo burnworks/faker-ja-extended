@@ -1,6 +1,6 @@
 [project]
 name = "faker-ja-extended"
-version = "0.2.0"
+version = "0.3.0"
 description = "Faker の ja_JP ロケールを拡張し、郵便番号データ（KEN_ALL）由来の実在住所と JMnedict 由来の姓を使えるようにする Provider 集"
 readme = "README.md"
 license = "MIT"

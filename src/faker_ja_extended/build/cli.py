@@ -1,8 +1,9 @@
 """データをビルドするコマンドラインツール。
 
-faker-ja-extended build            # 元データを取得してすべてビルドする
+faker-ja-extended build                         # 元データを取得してすべてビルドする
+faker-ja-extended build --only surnames given_names
 faker-ja-extended build --only addresses --ken-all ./utf_ken_all.zip
-faker-ja-extended info             # ビルド済みデータの情報を表示する
+faker-ja-extended info                          # ビルド済みデータの情報を表示する
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from pathlib import Path
 from faker_ja_extended._data import (
     ADDRESSES_FILE,
     BUNDLED_DATA_DIR,
+    GIVEN_NAMES_FILE,
     SURNAMES_FILE,
     DataNotBuiltError,
     default_data_dir,
@@ -27,7 +29,8 @@ from faker_ja_extended._data import (
 from faker_ja_extended.build import jmnedict, ken_all
 
 USER_AGENT = "faker-ja-extended (test data builder)"
-TARGETS = ("addresses", "surnames")
+TARGETS = ("addresses", "surnames", "given_names")
+JMNEDICT_ATTRIBUTION_FILE = "JMNEDICT_ATTRIBUTION.txt"
 
 
 def _sha256(path: Path) -> str:
@@ -89,36 +92,61 @@ def build_addresses(data_dir: Path, local: Path | None) -> None:
     print(f"住所: {len(records):,} 件 → {data_dir / ADDRESSES_FILE}", file=sys.stderr)
 
 
-def build_surnames(data_dir: Path, local: Path | None) -> None:
-    path, origin = _source(local, jmnedict.SOURCE_URL, data_dir / "sources", "JMnedict.xml.gz")
-    records, skipped = jmnedict.build_records(jmnedict.iter_surname_entries(path))
-    meta = {
-        "dataset": "surnames",
-        "fields": ["kanji", "kana", "romaji"],
+def _jmnedict_meta(dataset: str, fields: list[str], path: Path, origin: str) -> dict:
+    return {
+        "dataset": dataset,
+        "fields": fields,
         "source": origin,
         "source_page": jmnedict.SOURCE_PAGE,
         "source_sha256": _sha256(path),
         "built_at": _now(),
-        "count": len(records),
-        "skipped": skipped,
         "license": "CC BY-SA 4.0",
         "license_url": jmnedict.LICENSE_URL,
         "attribution": jmnedict.ATTRIBUTION,
     }
+
+
+def _write_jmnedict_attribution(data_dir: Path) -> None:
+    (data_dir / JMNEDICT_ATTRIBUTION_FILE).write_text(jmnedict.ATTRIBUTION + "\n", encoding="utf-8")
+
+
+def build_surnames(data_dir: Path, path: Path, origin: str) -> None:
+    records, skipped = jmnedict.build_records(jmnedict.iter_surname_entries(path))
+    meta = _jmnedict_meta("surnames", ["kanji", "kana", "romaji"], path, origin)
+    meta |= {"count": len(records), "skipped": skipped}
     write_dataset(data_dir / SURNAMES_FILE, meta, records)
-    (data_dir / "SURNAMES_ATTRIBUTION.txt").write_text(
-        jmnedict.ATTRIBUTION + "\n", encoding="utf-8"
-    )
+    _write_jmnedict_attribution(data_dir)
     print(f"姓: {len(records):,} 件 → {data_dir / SURNAMES_FILE}", file=sys.stderr)
+
+
+def build_given_names(data_dir: Path, path: Path, origin: str) -> None:
+    records, skipped = jmnedict.build_given_name_records(jmnedict.iter_given_name_entries(path))
+    meta = _jmnedict_meta("given_names", ["kanji", "kana", "romaji", "gender"], path, origin)
+    genders = {g: sum(1 for r in records if r[3] == g) for g in ("female", "male", "both")}
+    meta |= {"count": len(records), "genders": genders, "skipped": skipped}
+    write_dataset(data_dir / GIVEN_NAMES_FILE, meta, records)
+    _write_jmnedict_attribution(data_dir)
+    print(
+        f"名: {len(records):,} 件（女性 {genders['female']:,}、男性 {genders['male']:,}、"
+        f"両方 {genders['both']:,}）→ {data_dir / GIVEN_NAMES_FILE}",
+        file=sys.stderr,
+    )
 
 
 def cmd_build(args: argparse.Namespace) -> None:
     data_dir: Path = args.data_dir
-    targets = [args.only] if args.only else list(TARGETS)
+    targets = args.only or list(TARGETS)
     if "addresses" in targets:
         build_addresses(data_dir, args.ken_all)
-    if "surnames" in targets:
-        build_surnames(data_dir, args.jmnedict)
+    if "surnames" in targets or "given_names" in targets:
+        # 姓と名は同じ JMnedict から作るので、取得は 1 回だけにする
+        path, origin = _source(
+            args.jmnedict, jmnedict.SOURCE_URL, data_dir / "sources", "JMnedict.xml.gz"
+        )
+        if "surnames" in targets:
+            build_surnames(data_dir, path, origin)
+        if "given_names" in targets:
+            build_given_names(data_dir, path, origin)
 
 
 def _describe(meta: dict) -> str:
@@ -132,7 +160,7 @@ def _describe(meta: dict) -> str:
 
 def cmd_info(args: argparse.Namespace) -> None:
     print(f"保存先: {args.data_dir}")
-    for name, label in ((ADDRESSES_FILE, "住所"), (SURNAMES_FILE, "姓")):
+    for name, label in ((ADDRESSES_FILE, "住所"), (SURNAMES_FILE, "姓"), (GIVEN_NAMES_FILE, "名")):
         try:
             meta, _ = read_dataset(args.data_dir / name)
             local = _describe(meta)
@@ -149,6 +177,8 @@ def cmd_info(args: argparse.Namespace) -> None:
             print("  → ビルド済みのデータを使います")
         elif bundled:
             print("  → 同梱データを使います")
+        elif name == GIVEN_NAMES_FILE:
+            print("  → 名の拡張（extended_first_name_share）を使う場合はビルドが必要です")
         else:
             print("  → 使用できません（faker-ja-extended build を実行してください）")
 
@@ -164,7 +194,9 @@ def main(argv: list[str] | None = None) -> None:
     sub = parser.add_subparsers(required=True)
 
     build = sub.add_parser("build", help="元データを取得してデータをビルドする")
-    build.add_argument("--only", choices=TARGETS, help="指定したデータだけビルドする")
+    build.add_argument(
+        "--only", nargs="+", choices=TARGETS, help="指定したデータだけビルドする（複数指定可）"
+    )
     build.add_argument(
         "--ken-all", type=Path, help="取得済みの utf_ken_all.zip を使う（指定しなければ取得する）"
     )

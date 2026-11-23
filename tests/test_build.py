@@ -114,3 +114,37 @@ def test_write_dataset_if_changed_compares_content(tmp_path: Path) -> None:
 
     assert write_dataset_if_changed(path, meta, [["a", "c"]]) is True
     assert gzip.decompress(path.read_bytes()) != original
+
+
+@pytest.mark.parametrize(
+    ("kanji", "types", "expected"),
+    [
+        # 語尾がはっきりしていれば、JMnedict の分類より語尾を優先する
+        ("大輔", {jmnedict.FEMALE_TYPE}, jmnedict.MALE),
+        ("一郎", {jmnedict.GIVEN_TYPE}, jmnedict.MALE),
+        ("花子", {jmnedict.MALE_TYPE}, jmnedict.FEMALE),
+        # 語尾で決まらなければ分類に従う
+        ("薫", {jmnedict.FEMALE_TYPE, jmnedict.MALE_TYPE}, jmnedict.BOTH),
+        ("美咲", {jmnedict.FEMALE_TYPE}, jmnedict.FEMALE),
+        ("翼", {jmnedict.MALE_TYPE}, jmnedict.MALE),
+        # 性別の指定がなければ男性（実データでは大半が男性名のため）
+        ("盛貞", {jmnedict.GIVEN_TYPE}, jmnedict.MALE),
+    ],
+)
+def test_classify_gender(kanji: str, types: set[str], expected: str) -> None:
+    assert jmnedict.classify_gender(kanji, types) == expected
+
+
+def test_build_given_name_records(jmnedict_gz: Path) -> None:
+    records, skipped = jmnedict.build_given_name_records(
+        jmnedict.iter_given_name_entries(jmnedict_gz)
+    )
+    by_key = {(r[0], r[1]): r for r in records}
+    assert by_key[("大輔", "ダイスケ")] == ["大輔", "ダイスケ", "Daisuke", "male"]
+    assert by_key[("美咲", "ミサキ")][3] == "female"
+    assert by_key[("薫", "カオル")][3] == "both"
+    assert by_key[("盛貞", "モリサダ")][3] == "male"
+    assert {r[1] for r in records if r[0] == "愛"} == {"アイ", "マナ", "メグミ"}
+    # 姓だけのエントリは含まない
+    assert ("髙橋", "タカハシ") not in by_key
+    assert skipped["invalid_chars"] == 1  # Ｍａｒｙ
