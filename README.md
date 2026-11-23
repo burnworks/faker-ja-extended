@@ -5,6 +5,7 @@
 - **実在する住所と郵便番号**：日本郵便の郵便番号データをもとに、都道府県 / 市区町村 / 町域 / 郵便番号の対応が取れた住所を生成します。住所データはパッケージに同梱しているので、インストールしてすぐに使えます
 - **約 14 万件の姓**：JMnedict（日本語固有名詞辞書）の姓を追加し、漢字 / カタカナ / ローマ字が対応した氏名を生成します
 - **約 18 万件の名（任意）**：設定を変えると、名も JMnedict の名で拡張できます
+- **意地悪なデータのカタログ**：異体字、サロゲートペア、異体字セレクタ付きの文字、表記の揺れなど、システムが壊れやすい姓を集めたカタログを使えます
 
 ```python
 >>> fake.address_with_postcode()
@@ -212,6 +213,73 @@ fake.name_pair()          # ('城台 真綾', 'ジョウダイ マアヤ', 'Maay
 
 入力欄や検索のテストで、名の文字や読みのバリエーションを増やしたい場合に向いています。性別ごとの集計など、性別の正確さが必要なテストには向きません。
 
+### 意地悪なデータを使う
+
+文字コード、Unicode の正規化、文字数の数え方、表記の揺れなどで、システムが壊れやすい姓を集めたカタログを同梱しています（現在は姓の 37 件）。データのビルドは不要です。
+
+使い方は 3 通りあります。
+
+**1. 全件を試す（pytest のパラメータ化）**
+
+登録や検索の処理がすべてのパターンで壊れないかを確かめるのに向いています。Faker は使いません。
+
+```python
+import pytest
+from faker_ja_extended import surname_cases
+
+
+@pytest.mark.parametrize("case", surname_cases(), ids=lambda c: c.id)
+def test_register_customer(case):
+    customer = register(last_name=case.value, last_name_kana=case.kana)
+    assert find_customer(case.value) == customer
+```
+
+各件は `NastyCase` で、表記（`value`）、標準的な表記（`base`）、読み（`kana`）、ローマ字（`romaji`）、タグ（`tags`）、何が壊れやすいかの説明（`note`）を持っています。
+
+**2. Faker から選ぶ**
+
+```python
+fake.nasty_last_name()                              # '𠮷田'
+fake.nasty_last_name_pair()                         # ('𠮷田', 'ヨシダ', 'Yoshida')
+fake.nasty_last_name(include={"cp932_unmappable"})  # CP932 に変換できないものだけ
+fake.nasty_last_name_case()                         # 説明やタグを含む NastyCase
+```
+
+`PersonProvider` を追加すると使えます（姓のデータのビルドが必要です）。
+
+**3. 通常の生成に一定の割合で混ぜる**
+
+大量のテストデータの中に、本番データのように時々意地悪なデータが混ざっている状態を作れます。既定は 0（混ぜない）です。
+
+```python
+class MyPersonProvider(PersonProvider):
+    nasty_share = 0.01                            # last_name() などの 1% をカタログの姓にする
+    nasty_exclude = frozenset({"ivs"})            # 混ぜないもの（システムが扱わない仕様のもの）
+```
+
+`last_name()`、`name()`、`name_pair()` など、姓を含むメソッドすべてに混ざります。混ざった姓も、読みとローマ字は対応しています。
+
+#### タグ
+
+`include`（どれかを持つものだけ）と `exclude`（どれかを持つものを除く）で絞り込めます。
+
+| タグ | 内容 | 例 |
+|---|---|---|
+| `kanji_variant` | 異体字（旧字体 / 俗字 / 互換漢字など） | 渡邊、齋藤、櫻井 |
+| `spelling_variant` | 表記の揺れ | 三ケ島（三ヶ島）、一之瀬（一ノ瀬）、佐佐木（佐々木） |
+| `cp932_only` | CP932 にはあるが JIS X 0208（Shift_JIS）にはない文字を含む | 髙橋、山﨑、德永 |
+| `cp932_unmappable` | CP932 に変換できない文字を含む | 𠮷田、𡈽屋 |
+| `nfc_changes` | Unicode の正規化（NFC）で文字列が変わる | 大塚（互換漢字の「塚」U+FA10） |
+| `surrogate_pair` | UTF-16 でサロゲートペアになる文字を含む | 𠮷田、異体字セレクタ付きのもの |
+| `ivs` | 異体字セレクタを含む（見た目は 1 文字でもコードポイントは 2 つ） | 葛󠄀城、辻󠄁 |
+| `iteration_mark` | 繰り返し記号「々」を含む | 佐々木、野々村 |
+| `contains_kana` | ひらがな / カタカナを含む | 一ノ瀬、三ヶ島 |
+| `single_char` | 見た目が 1 文字 | 林、東 |
+| `long` | 見た目が 4 文字以上 | 勅使河原、勘解由小路 |
+| `unusual_reading` | 漢字から読みを推測しにくい | 小鳥遊、勘解由小路 |
+
+カタログは手作業で作っているため、文字の性質から判定できるタグ（`cp932_only`、`nfc_changes`、`surrogate_pair` など）は、テストで文字の性質と一致しているかを自動で検証しています。
+
 ### 設定を変える
 
 サブクラスを作って設定を変更します。
@@ -224,6 +292,7 @@ from faker_ja_extended import AddressProvider, PersonProvider
 class MyPersonProvider(PersonProvider):
     extended_share = 0.3       # 追加した姓が選ばれる割合（既定 0.5）
     extended_first_name_share = 0.5  # 追加した名が選ばれる割合（既定 0 = 無効）
+    nasty_share = 0.01               # 意地悪な姓を混ぜる割合（既定 0 = 無効）
     data_dir = Path("./data")  # データの保存先
 
 
@@ -266,7 +335,7 @@ FAKER_JA_EXTENDED_DATA_DIR=./data faker-ja-extended build --only surnames
 
 | コマンド | 内容 |
 |---|---|
-| `faker-ja-extended build` | 元データを取得して、住所・姓・名のデータをビルドする |
+| `faker-ja-extended build` | 元データを取得して、住所 / 姓 / 名のデータをビルドする |
 | `faker-ja-extended build --only surnames` | 姓だけビルドする（`addresses` で住所、`given_names` で名。`--only surnames given_names` のように複数指定も可） |
 | `faker-ja-extended build --ken-all ./utf_ken_all.zip` | 取得済みの郵便番号データを使う |
 | `faker-ja-extended build --jmnedict ./JMnedict.xml.gz` | 取得済みの JMnedict を使う |

@@ -12,8 +12,9 @@
 事前に ``faker-ja-extended build`` でデータをビルドしておく必要がある。
 """
 
+from faker_ja_extended.nasty import NastyCase, surname_cases
 from faker_ja_extended.providers.address import AddressRecord
 from faker_ja_extended.providers.address import Provider as AddressProvider
 from faker_ja_extended.providers.person import Provider as PersonProvider
 
-__all__ = ["AddressProvider", "AddressRecord", "PersonProvider"]
+__all__ = ["AddressProvider", "AddressRecord", "NastyCase", "PersonProvider", "surname_cases"]

@@ -9,6 +9,9 @@ JMnedict の名を追加する。JMnedict の性別の分類は不完全なの�
 数十通り）が偏って出ないよう、重みは「1 ÷ その漢字表記の読みの数」にしている。
 
 JMnedict には頻度の情報がないため、追加分の重みは実態の分布を表すものではない。
+
+意地悪な姓：nasty_last_name() などで、カタログ（faker_ja_extended.nasty）から選べる。
+nasty_share を 0 より大きくすると、last_name() などにその割合でカタログの姓が混ざる（既定は 0）。
 """
 
 from __future__ import annotations
@@ -29,6 +32,7 @@ from faker_ja_extended._data import (
     read_dataset,
     resolve_dataset_path,
 )
+from faker_ja_extended.nasty import NastyCase, surname_cases
 
 NamePair = tuple[str, str, str]
 
@@ -95,10 +99,28 @@ class Provider(JaPersonProvider):
     性別は JMnedict の分類と語尾から振り分けた目安で、正確ではない。
     """
 
+    nasty_share: ClassVar[float] = 0.0
+    """last_name() などに、意地悪な姓のカタログから選んだ姓を混ぜる割合（0 以上 1 未満）。既定は 0。
+
+    0.01 なら、姓の 1% がカタログの姓（異体字、サロゲートペア、異体字セレクタ付きなど）になる。
+    """
+
+    nasty_exclude: ClassVar[frozenset[str]] = frozenset()
+    """nasty_share で混ぜる姓から除くタグ。システムが扱わない仕様のものを除くのに使う。
+
+    例: frozenset({"ivs", "surrogate_pair"})
+    """
+
     def __init__(self, generator) -> None:
         super().__init__(generator)
         _check_share("extended_share", self.extended_share)
         _check_share("extended_first_name_share", self.extended_first_name_share)
+        _check_share("nasty_share", self.nasty_share)
+        self._nasty_mix: list[NastyCase] = []
+        if self.nasty_share > 0:
+            self._nasty_mix = surname_cases(exclude=self.nasty_exclude)
+            if not self._nasty_mix:
+                raise ValueError("nasty_exclude によって、混ぜる姓がなくなりました")
 
         # 姓データ（JMnedict 由来、CC BY-SA 4.0）は同梱せず、利用者の環境でビルドする
         self.dataset_path = resolve_dataset_path(SURNAMES_FILE, self.data_dir, bundled=False)
@@ -143,7 +165,43 @@ class Provider(JaPersonProvider):
 
         :example: ('髙木', 'タカギ', 'Takagi')
         """
+        # nasty_share が 0 のときは乱数を余分に使わない（同じシードで以前と同じ結果になるように）
+        if self.nasty_share > 0 and self.generator.random.random() < self.nasty_share:
+            return self.generator.random.choice(self._nasty_mix).pair
         return self._surnames.pick(self.generator.random)
+
+    def nasty_last_name_case(
+        self, include: Iterable[str] | None = None, exclude: Iterable[str] | None = None
+    ) -> NastyCase:
+        """意地悪な姓のカタログから 1 件を選んで返す（説明やタグも含む）。
+
+        include を指定すると、そのタグのどれかを持つものだけから選ぶ。
+        exclude を指定すると、そのタグのどれかを持つものを除いて選ぶ。
+
+        :example: NastyCase(id='surrogate-yoshida', value='𠮷田', base='吉田', ...)
+        """
+        cases = surname_cases(include, exclude)
+        if not cases:
+            raise ValueError("条件に合う姓がカタログにありません")
+        return self.generator.random.choice(cases)
+
+    def nasty_last_name(
+        self, include: Iterable[str] | None = None, exclude: Iterable[str] | None = None
+    ) -> str:
+        """意地悪な姓のカタログから 1 件を選んで、表記を返す。
+
+        :example: '𠮷田'
+        """
+        return self.nasty_last_name_case(include, exclude).value
+
+    def nasty_last_name_pair(
+        self, include: Iterable[str] | None = None, exclude: Iterable[str] | None = None
+    ) -> NamePair:
+        """意地悪な姓のカタログから 1 件を選んで、(表記, カタカナ, ローマ字) を返す。
+
+        :example: ('𠮷田', 'ヨシダ', 'Yoshida')
+        """
+        return self.nasty_last_name_case(include, exclude).pair
 
     def first_name_pair(self) -> NamePair:
         """名の (漢字, カタカナ, ローマ字) を返す。

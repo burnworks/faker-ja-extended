@@ -1,0 +1,361 @@
+# 意地悪な姓のカタログ。
+#
+# 各エントリの項目:
+#   id      一意な ID（テストの ID などに使う）
+#   value   姓の表記
+#   base    標準的な表記（異体字や表記の揺れの「元」。同じなら value と同じ）
+#   kana    読み（カタカナ）
+#   romaji  ローマ字（ヘボン式・パスポート式）
+#   tags    性質を表すタグ（faker_ja_extended.nasty.TAGS を参照）
+#   note    何が壊れやすいかの説明
+#
+# 見分けにくい文字（互換漢字、サロゲートペア、異体字セレクタ）は、
+# 確認しやすいようエスケープ（\uXXXX、\UXXXXXXXX）で書く。
+# タグの多くは tests/test_nasty.py で文字の性質と一致するか自動で検証している。
+
+# --- 異体字（JIS X 0208 にあるもの）---
+
+[[surname]]
+id = "variant-watanabe-hen"
+value = "渡邊"
+base = "渡辺"
+kana = "ワタナベ"
+romaji = "Watanabe"
+tags = ["kanji_variant"]
+note = "「辺」の旧字体。「渡辺」と同一人物として扱うか、検索でヒットさせるかが仕様で問われる"
+
+[[surname]]
+id = "variant-watanabe-hen2"
+value = "渡邉"
+base = "渡辺"
+kana = "ワタナベ"
+romaji = "Watanabe"
+tags = ["kanji_variant"]
+note = "「辺」の異体字。「邉」にはさらに多くの異体字があり、外字として扱われることも多い"
+
+[[surname]]
+id = "variant-saito-sai"
+value = "齋藤"
+base = "斎藤"
+kana = "サイトウ"
+romaji = "Saito"
+tags = ["kanji_variant"]
+note = "「斎」の旧字体。斎藤・齋藤・齊藤・斉藤はすべて実在し、どれを同一視するかが問われる"
+
+[[surname]]
+id = "variant-saito-sei"
+value = "齊藤"
+base = "斎藤"
+kana = "サイトウ"
+romaji = "Saito"
+tags = ["kanji_variant"]
+note = "「齋」と字形が似た別の字。目視での入力ミスが起きやすい"
+
+[[surname]]
+id = "variant-saito-sei-simple"
+value = "斉藤"
+base = "斎藤"
+kana = "サイトウ"
+romaji = "Saito"
+tags = ["kanji_variant"]
+note = "「齊」の新字体。「斎藤」と混同されやすい"
+
+[[surname]]
+id = "variant-nakazawa"
+value = "中澤"
+base = "中沢"
+kana = "ナカザワ"
+romaji = "Nakazawa"
+tags = ["kanji_variant"]
+note = "「沢」の旧字体"
+
+[[surname]]
+id = "variant-hamada"
+value = "濱田"
+base = "浜田"
+kana = "ハマダ"
+romaji = "Hamada"
+tags = ["kanji_variant"]
+note = "「浜」の旧字体"
+
+[[surname]]
+id = "variant-hirose"
+value = "廣瀬"
+base = "広瀬"
+kana = "ヒロセ"
+romaji = "Hirose"
+tags = ["kanji_variant"]
+note = "「広」の旧字体"
+
+[[surname]]
+id = "variant-sakurai"
+value = "櫻井"
+base = "桜井"
+kana = "サクライ"
+romaji = "Sakurai"
+tags = ["kanji_variant"]
+note = "「桜」の旧字体"
+
+[[surname]]
+id = "variant-tomita"
+value = "冨田"
+base = "富田"
+kana = "トミタ"
+romaji = "Tomita"
+tags = ["kanji_variant"]
+note = "「富」の異体字（わかんむり）。「富田」と「冨田」はどちらも実在する"
+
+[[surname]]
+id = "variant-shimada"
+value = "嶋田"
+base = "島田"
+kana = "シマダ"
+romaji = "Shimada"
+tags = ["kanji_variant"]
+note = "「島」の異体字"
+
+# --- CP932 にはあるが JIS X 0208（Shift_JIS）にはない文字 ---
+
+[[surname]]
+id = "cp932-takahashi-hashigo"
+value = "髙橋"
+base = "高橋"
+kana = "タカハシ"
+romaji = "Takahashi"
+tags = ["kanji_variant", "cp932_only"]
+note = "「髙」（はしご高、U+9AD9）。CP932 の拡張領域にはあるが、JIS X 0208 にはない。Shift_JIS や ISO-2022-JP の連携先で文字化けする"
+
+[[surname]]
+id = "cp932-takasaki"
+value = "髙﨑"
+base = "高崎"
+kana = "タカサキ"
+romaji = "Takasaki"
+tags = ["kanji_variant", "cp932_only"]
+note = "「髙」と「﨑」の両方が異体字。片方だけ対応している処理を見つけやすい"
+
+[[surname]]
+id = "cp932-yamazaki-tatsusaki"
+value = "山﨑"
+base = "山崎"
+kana = "ヤマザキ"
+romaji = "Yamazaki"
+tags = ["kanji_variant", "cp932_only"]
+note = "「﨑」（たつさき、U+FA11）。CJK 互換漢字のブロックにあるが、統合漢字の扱いなので Unicode の正規化では変わらない。互換漢字だから正規化で変わると思い込んだ処理で問題になる"
+
+[[surname]]
+id = "cp932-miyazaki-tatsusaki"
+value = "宮﨑"
+base = "宮崎"
+kana = "ミヤザキ"
+romaji = "Miyazaki"
+tags = ["kanji_variant", "cp932_only"]
+note = "「﨑」（U+FA11）を含む。山﨑と同じ性質"
+
+[[surname]]
+id = "cp932-tokunaga"
+value = "德永"
+base = "徳永"
+kana = "トクナガ"
+romaji = "Tokunaga"
+tags = ["kanji_variant", "cp932_only"]
+note = "「德」（U+5FB7）。CP932 の拡張領域にあるが、JIS X 0208 にはない"
+
+# --- Unicode の正規化（NFC）で別の文字に変わるもの ---
+
+[[surname]]
+id = "nfc-otsuka"
+value = "大塚"
+base = "大塚"
+kana = "オオツカ"
+romaji = "Otsuka"
+tags = ["kanji_variant", "cp932_only", "nfc_changes"]
+note = "「塚」の互換漢字（U+FA10）。NFC で正規化すると通常の「塚」（U+585A）に変わる。正規化してから保存・比較する処理と、しない処理が混在すると一致しなくなる"
+
+[[surname]]
+id = "nfc-iizuka"
+value = "飯塚"
+base = "飯塚"
+kana = "イイヅカ"
+romaji = "Iizuka"
+tags = ["kanji_variant", "cp932_only", "nfc_changes"]
+note = "「塚」の互換漢字（U+FA10）を含む。大塚と同じ性質。読みに「ヅ」を含む"
+
+# --- サロゲートペア（U+10000 以降の文字）---
+
+[[surname]]
+id = "surrogate-yoshida"
+value = "\U00020BB7田"
+base = "吉田"
+kana = "ヨシダ"
+romaji = "Yoshida"
+tags = ["kanji_variant", "surrogate_pair", "cp932_unmappable"]
+note = "「𠮷」（つちよし、U+20BB7）。UTF-16 では 2 単位、UTF-8 では 4 バイト。文字数の数え方や、文字単位の切り詰めで壊れやすい。CP932 には変換できない"
+
+[[surname]]
+id = "surrogate-yoshikawa"
+value = "\U00020BB7川"
+base = "吉川"
+kana = "ヨシカワ"
+romaji = "Yoshikawa"
+tags = ["kanji_variant", "surrogate_pair", "cp932_unmappable"]
+note = "「𠮷」（U+20BB7）を含む。𠮷田と同じ性質"
+
+[[surname]]
+id = "surrogate-tsuchiya"
+value = "\U0002123D屋"
+base = "土屋"
+kana = "ツチヤ"
+romaji = "Tsuchiya"
+tags = ["kanji_variant", "surrogate_pair", "cp932_unmappable"]
+note = "「𡈽」（土に点、U+2123D）。サロゲートペアで、CP932 には変換できない"
+
+# --- 異体字セレクタ（IVS）付き ---
+
+[[surname]]
+id = "ivs-katsuragi"
+value = "葛\U000E0100城"
+base = "葛城"
+kana = "カツラギ"
+romaji = "Katsuragi"
+tags = ["kanji_variant", "ivs", "surrogate_pair", "cp932_unmappable"]
+note = "「葛」に異体字セレクタ（U+E0100）が付いている。見た目は 1 文字でもコードポイントは 2 つ。異体字セレクタ自体も U+10000 以降の文字なので、UTF-16 ではサロゲートペアになる。セレクタを落とすと字形が変わり、セレクタの直前で切り詰めると壊れる。表示される字形はフォントによる"
+
+[[surname]]
+id = "ivs-tsuji"
+value = "辻\U000E0101"
+base = "辻"
+kana = "ツジ"
+romaji = "Tsuji"
+tags = ["kanji_variant", "ivs", "surrogate_pair", "cp932_unmappable", "single_char"]
+note = "「辻」に異体字セレクタ（U+E0101）が付いている。見た目は 1 文字だがコードポイントは 2 つで、文字数の上限チェックや 1 文字の姓の扱いで問題になる"
+
+# --- 表記の揺れ ---
+
+[[surname]]
+id = "spelling-mikajima-small-ke"
+value = "三ヶ島"
+base = "三ヶ島"
+kana = "ミカジマ"
+romaji = "Mikajima"
+tags = ["contains_kana"]
+note = "小書きの「ヶ」を含む。「三ケ島」「三ヵ島」と同一視するかが問われる"
+
+[[surname]]
+id = "spelling-mikajima-large-ke"
+value = "三ケ島"
+base = "三ヶ島"
+kana = "ミカジマ"
+romaji = "Mikajima"
+tags = ["spelling_variant", "contains_kana"]
+note = "大きい「ケ」で書いた表記。「ヶ」とは別の文字"
+
+[[surname]]
+id = "spelling-mikajima-small-ka"
+value = "三ヵ島"
+base = "三ヶ島"
+kana = "ミカジマ"
+romaji = "Mikajima"
+tags = ["spelling_variant", "contains_kana"]
+note = "小書きの「ヵ」で書いた表記"
+
+[[surname]]
+id = "spelling-ichinose-no"
+value = "一ノ瀬"
+base = "一ノ瀬"
+kana = "イチノセ"
+romaji = "Ichinose"
+tags = ["contains_kana"]
+note = "カタカナの「ノ」を含む。漢字だけを受け付ける入力チェックで弾かれやすい"
+
+[[surname]]
+id = "spelling-ichinose-kanji"
+value = "一之瀬"
+base = "一ノ瀬"
+kana = "イチノセ"
+romaji = "Ichinose"
+tags = ["spelling_variant"]
+note = "「ノ」を漢字の「之」で書いた表記。一ノ瀬・一之瀬・一の瀬はどれも実在する"
+
+[[surname]]
+id = "spelling-ichinose-hiragana"
+value = "一の瀬"
+base = "一ノ瀬"
+kana = "イチノセ"
+romaji = "Ichinose"
+tags = ["spelling_variant", "contains_kana"]
+note = "「ノ」をひらがなの「の」で書いた表記"
+
+[[surname]]
+id = "iteration-sasaki"
+value = "佐々木"
+base = "佐々木"
+kana = "ササキ"
+romaji = "Sasaki"
+tags = ["iteration_mark"]
+note = "繰り返し記号「々」を含む。「々」を漢字として扱わない入力チェックで弾かれやすい"
+
+[[surname]]
+id = "iteration-sasaki-expanded"
+value = "佐佐木"
+base = "佐々木"
+kana = "ササキ"
+romaji = "Sasaki"
+tags = ["spelling_variant"]
+note = "「々」を使わずに書いた表記。「佐々木」と同一視するかが問われる"
+
+[[surname]]
+id = "iteration-nonomura"
+value = "野々村"
+base = "野々村"
+kana = "ノノムラ"
+romaji = "Nonomura"
+tags = ["iteration_mark"]
+note = "繰り返し記号「々」を含む"
+
+# --- 長さ・読み ---
+
+[[surname]]
+id = "length-hayashi"
+value = "林"
+base = "林"
+kana = "ハヤシ"
+romaji = "Hayashi"
+tags = ["single_char"]
+note = "1 文字の姓。「2 文字以上」といった入力チェックで弾かれやすい"
+
+[[surname]]
+id = "length-higashi"
+value = "東"
+base = "東"
+kana = "ヒガシ"
+romaji = "Higashi"
+tags = ["single_char"]
+note = "1 文字の姓。「アズマ」「アガリ」など読みが複数あり、漢字から読みを推測できない"
+
+[[surname]]
+id = "length-teshigawara"
+value = "勅使河原"
+base = "勅使河原"
+kana = "テシガワラ"
+romaji = "Teshigawara"
+tags = ["long"]
+note = "4 文字の姓。姓の入力欄の上限を 3 文字程度にしていると収まらない"
+
+[[surname]]
+id = "length-kadenokoji"
+value = "勘解由小路"
+base = "勘解由小路"
+kana = "カデノコウジ"
+romaji = "Kadenokoji"
+tags = ["long", "unusual_reading"]
+note = "5 文字の姓。漢字から読みを推測するのが難しい"
+
+[[surname]]
+id = "reading-takanashi"
+value = "小鳥遊"
+base = "小鳥遊"
+kana = "タカナシ"
+romaji = "Takanashi"
+tags = ["unusual_reading"]
+note = "「鷹がいないので小鳥が遊べる」に由来する読み。漢字から読みを推測できない"
