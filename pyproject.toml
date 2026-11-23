@@ -1,0 +1,56 @@
+[project]
+name = "faker-ja-extended"
+version = "0.1.0"
+description = "Faker の ja_JP ロケールを拡張し、郵便番号データ（KEN_ALL）由来の実在住所と JMnedict 由来の姓を使えるようにする Provider 集"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Yoshiki Kato (burnworks)" }]
+keywords = ["faker", "japanese", "test-data", "postcode", "address", "name"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Natural Language :: Japanese",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Testing",
+]
+requires-python = ">=3.11"
+dependencies = [
+    "faker>=40",
+]
+
+[project.urls]
+Homepage = "https://github.com/burnworks/faker-ja-extended"
+Repository = "https://github.com/burnworks/faker-ja-extended"
+Issues = "https://github.com/burnworks/faker-ja-extended/issues"
+
+[project.scripts]
+faker-ja-extended = "faker_ja_extended.build.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/faker_ja_extended"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# 元データの行をそのまま並べたフィクスチャやテストケースなので、行の長さは問わない
+"tests/conftest.py" = ["E501"]
+"tests/test_build.py" = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

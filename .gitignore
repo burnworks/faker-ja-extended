@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# 仮想環境・ツールのキャッシュ
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# パッケージのビルド成果物（ルート直下のみ。src/faker_ja_extended/build/ はソースなので対象外）
+/dist/
+/build/
+
+# ビルドしたデータや取得した元データ（--data-dir でリポジトリ内を指定した場合に備える）
+/data/
+*.json.gz
+utf_ken_all.zip
+JMnedict.xml.gz
+SURNAMES_ATTRIBUTION.txt
+
+# OS・エディタ
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

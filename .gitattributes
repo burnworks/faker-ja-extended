@@ -1,0 +1,2 @@
+# 改行コードを LF に統一する（各自の core.autocrlf の設定に関係なく）
+* text=auto eol=lf
