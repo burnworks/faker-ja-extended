@@ -55,14 +55,34 @@ def resolve_dataset_path(filename: str, explicit_dir: Path | None, *, bundled: b
     return BUNDLED_DATA_DIR / filename
 
 
+def _serialize(meta: dict[str, Any], records: list[list[str]]) -> bytes:
+    payload = {"format_version": FORMAT_VERSION, "meta": meta, "records": records}
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+
+
+def write_dataset_if_changed(path: Path, meta: dict[str, Any], records: list[list[str]]) -> bool:
+    """内容が変わった場合だけ書き出す。書き出したら True を返す。
+
+    gzip の圧縮結果は zlib の実装やバージョンによって変わることがあるため、
+    ファイルのバイト列ではなく、展開した内容で比較する。
+    """
+    if path.exists():
+        with gzip.open(path, "rb") as f:
+            if f.read() == _serialize(meta, records):
+                return False
+    write_dataset(path, meta, records)
+    return True
+
+
 def write_dataset(path: Path, meta: dict[str, Any], records: list[list[str]]) -> None:
     """メタデータとレコードを gzip 圧縮した JSON として書き出す。
 
     同じ入力からは同じバイト列になるよう、gzip のタイムスタンプは 0 に固定する。
+    ただし、zlib の実装が異なる環境では圧縮結果が変わることがある
+    （内容の比較には write_dataset_if_changed を使う）。
     """
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"format_version": FORMAT_VERSION, "meta": meta, "records": records}
-    body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    body = _serialize(meta, records)
     tmp = path.with_suffix(path.suffix + ".tmp")
     with open(tmp, "wb") as raw, gzip.GzipFile(fileobj=raw, mode="wb", mtime=0) as gz:
         gz.write(body)

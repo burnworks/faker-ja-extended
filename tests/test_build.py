@@ -93,3 +93,24 @@ def test_build_surname_records(jmnedict_gz: Path) -> None:
     assert ["𠮷田", "ヨシダ", "Yoshida"] in records
     assert all(r[0] != "ＡＢＣ" for r in records)
     assert skipped["invalid_chars"] == 1
+
+
+def test_write_dataset_if_changed_compares_content(tmp_path: Path) -> None:
+    import gzip
+
+    from faker_ja_extended._data import write_dataset, write_dataset_if_changed
+
+    path = tmp_path / "data.json.gz"
+    meta, records = {"count": 1}, [["a", "b"]]
+    write_dataset(path, meta, records)
+
+    # 圧縮レベルを変えて書き直し、内容は同じでバイト列だけが違う状態を再現する
+    original = gzip.decompress(path.read_bytes())
+    path.write_bytes(gzip.compress(original, compresslevel=1, mtime=0))
+    recompressed = path.read_bytes()
+
+    assert write_dataset_if_changed(path, meta, records) is False
+    assert path.read_bytes() == recompressed  # 内容が同じならファイルに触れない
+
+    assert write_dataset_if_changed(path, meta, [["a", "c"]]) is True
+    assert gzip.decompress(path.read_bytes()) != original
